@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F3F7F8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Flip to Focus">
+  <title>Flip to Focus</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <!-- Setup: one tap to grant motion access -->
+    <section id="view-setup" class="view">
+      <div class="setup">
+        <div class="phone-art" aria-hidden="true"><div class="phone"><div class="phone-screen"></div></div></div>
+        <h1>Flip to Focus</h1>
+        <p class="lead">Turn your phone face-down to focus. Pick it up and the session pauses. Every pause is recorded so you can see how you really study.</p>
+        <ol class="steps">
+          <li>Tap <strong>Start</strong> and allow motion access.</li>
+          <li>Keep this page open in Safari.</li>
+          <li>Lay the phone face-down on a flat surface.</li>
+        </ol>
+        <button id="enable-btn" class="btn primary big" type="button">Start</button>
+        <p id="setup-msg" class="msg" role="status"></p>
+        <p class="fine">Only motion data is used, only while this page is open. Your records stay on this phone until you export them.</p>
+      </div>
+    </section>
+
+    <!-- Timer -->
+    <section id="view-timer" class="view" hidden>
+      <div id="sensor-warning" class="banner" hidden></div>
+      <div class="top-row">
+        <span id="status-pill" class="pill">Not started</span>
+        <span id="posture-pill" class="pill subtle">Waiting for sensor</span>
+      </div>
+
+      <div class="clock-card">
+        <p class="label">Focus time</p>
+        <div id="focus-clock" class="clock">00:00</div>
+        <p id="hint" class="hint">Lay the phone face-down to start.</p>
+      </div>
+
+      <div id="pause-card" class="pause-card" hidden>
+        <div class="pause-head">
+          <span id="pause-kind">Brief interruption</span>
+          <span id="pause-clock" class="pause-clock">0:00</span>
+        </div>
+        <p class="label">What are you doing? (optional)</p>
+        <div class="chips" id="feedback-chips">
+          <button type="button" class="chip" data-label="focusing">Still focusing</button>
+          <button type="button" class="chip" data-label="break">Taking a break</button>
+          <button type="button" class="chip" data-label="sleeping">Sleeping</button>
+          <button type="button" class="chip" data-label="other">Other…</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat focus">
+          <span class="stat-label">Focus</span>
+          <span id="focus-count" class="stat-num">0</span>
+          <span id="focus-min" class="stat-sub">0.00 min</span>
+        </div>
+        <div class="stat pause">
+          <span class="stat-label">Pauses</span>
+          <span id="pause-count" class="stat-num">0</span>
+          <span id="pause-min" class="stat-sub">0.00 min</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Brief / breaks</span>
+          <span id="brief-breaks" class="stat-num">0 / 0</span>
+          <span class="stat-sub">under / over 1 min</span>
+        </div>
+      </div>
+
+      <div id="summary-card" class="summary-card" hidden>
+        <h2>Session saved</h2>
+        <p id="summary-text"></p>
+        <button id="new-btn" class="btn primary" type="button">New session</button>
+      </div>
+
+      <button id="stop-btn" class="btn ghost" type="button" hidden>End session</button>
+
+      <details class="timeline" id="timeline-wrap">
+        <summary>Timeline</summary>
+        <table>
+          <thead><tr><th>Event</th><th>Start</th><th>Min</th></tr></thead>
+          <tbody id="timeline"><tr><td colspan="3" class="empty">No records yet.</td></tr></tbody>
+        </table>
+      </details>
+    </section>
+
+    <!-- History -->
+    <section id="view-history" class="view" hidden>
+      <h2 class="page-title">Your study patterns</h2>
+      <div class="stats">
+        <div class="stat"><span class="stat-label">Sessions</span><span id="h-sessions" class="stat-num">0</span></div>
+        <div class="stat"><span class="stat-label">Avg focus</span><span id="h-avg-focus" class="stat-num">0m</span></div>
+        <div class="stat"><span class="stat-label">Avg pauses</span><span id="h-avg-pauses" class="stat-num">0</span></div>
+      </div>
+      <div id="h-insights" class="insights" hidden></div>
+      <ul id="h-list" class="session-list"></ul>
+      <p id="h-empty" class="empty">No sessions yet. End a session and it appears here.</p>
+      <div class="row">
+        <button id="export-csv" class="btn" type="button">Export CSV</button>
+        <button id="export-json" class="btn" type="button">Export JSON</button>
+      </div>
+      <button id="clear-history" class="btn text-danger" type="button">Clear history</button>
+    </section>
+
+    <!-- Tools: participant ID, live readings, accuracy trials (O1) -->
+    <section id="view-tools" class="view" hidden>
+      <h2 class="page-title">Study tools</h2>
+
+      <div class="card">
+        <label class="field">
+          <span>Participant ID (added to exports)</span>
+          <input id="participant" type="text" autocomplete="off" placeholder="e.g. P01">
+        </label>
+      </div>
+
+      <div class="card">
+        <h3>Accuracy test</h3>
+        <p class="fine">Pick the surface, tap a test, then place the phone that way. After 8 seconds the app records what it detected and beeps.</p>
+        <div class="row">
+          <label class="field">
+            <span>Surface</span>
+            <select id="trial-surface">
+              <option>Desk</option><option>Bed</option><option>Sofa</option><option>Lap</option><option>Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Phone</span>
+            <input id="trial-phone" type="text" autocomplete="off" placeholder="e.g. iPhone 13">
+          </label>
+        </div>
+        <div class="trial-buttons">
+          <button type="button" class="btn" data-expected="face-down">Test face-down</button>
+          <button type="button" class="btn" data-expected="face-up">Test face-up</button>
+          <button type="button" class="btn" data-expected="other">Test held in hand</button>
+        </div>
+        <p id="trial-status" class="trial-status" role="status"></p>
+        <div id="trial-results"></div>
+        <div class="row">
+          <button id="trial-export" class="btn" type="button">Export trials CSV</button>
+          <button id="trial-clear" class="btn text-danger" type="button">Clear trials</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="toggle"><input id="debug-toggle" type="checkbox"><span>Show live sensor readings</span></label>
+        <dl id="debug" class="debug" hidden>
+          <dt>Confirmed state</dt><dd id="d-state">–</dd>
+          <dt>Raw state</dt><dd id="d-raw">–</dd>
+          <dt>X / Y / Z (m/s²)</dt><dd id="d-xyz">–</dd>
+          <dt>Movement</dt><dd id="d-motion">–</dd>
+          <dt>Events / s</dt><dd id="d-rate">–</dd>
+          <dt>Screen wake lock</dt><dd id="d-wake">–</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <div id="sim" class="sim" hidden>
+    <span>Simulate:</span>
+    <button type="button" data-pose="face-up">Face-up</button>
+    <button type="button" data-pose="face-down">Face-down</button>
+    <button type="button" data-pose="other">Pick up</button>
+  </div>
+
+  <nav id="tabbar" class="tabbar" hidden>
+    <button type="button" class="tab active" data-view="timer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Timer
+    </button>
+    <button type="button" class="tab" data-view="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Patterns
+    </button>
+    <button type="button" class="tab" data-view="tools">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>Tools
+    </button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script src="timer.js"></script>
+  <script src="sensor.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
