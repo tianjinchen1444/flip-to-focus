@@ -3,7 +3,7 @@
 One iPhone web page that joins the team's pieces:
 
 | File | Owner / origin | Role |
-|---|---|---|
+|---|---|---|---|
 | `timer.js` | Team recorder API v2.1, **copied unchanged** | Focus/pause segments, stop, reset, feedback, localStorage |
 | `sensor.js` | Built from the team's sensor test page | `accelerationIncludingGravity.z`, ±7 m/s² threshold, 300 ms stability |
 | `app.js` | Glue | Calls `focusTimer.start()/pause()` from posture, keeps session history, accuracy trials |
