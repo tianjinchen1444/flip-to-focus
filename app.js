@@ -47,7 +47,7 @@
 
   const SIM = new URLSearchParams(location.search).has('sim');
   let sensorsOn = false;
-  let view = 'setup';
+  let view = 'timer';
   let downSince = null;
   let trialRunning = false;
   let lastSensorChange = null;
@@ -163,6 +163,18 @@
     $('posture-pill').textContent = POSTURE_LABEL[r.state] || r.state;
     $('focus-clock').textContent = fmtClock(state.focusMs);
     document.body.classList.toggle('focusing', state.status === 'running');
+    document.body.classList.toggle('is-paused', state.status === 'paused');
+
+    // Live strip of this session's focus (blue) and pause (orange) stretches
+    const strip = $('live-bar');
+    strip.replaceChildren();
+    if (state.status !== 'idle') {
+      state.segments.forEach((seg) => {
+        const part = el('span', seg.type === 'focus' ? 'f' : 'p');
+        part.style.flexGrow = String(Math.max(seg.durationMs, 1));
+        strip.appendChild(part);
+      });
+    }
 
     let hint;
     if (state.status === 'running') hint = 'Focusing. Pick up the phone to pause.';
@@ -232,6 +244,77 @@
     return e;
   }
 
+  // Stacked bars: focus minutes (bottom) and paused minutes (top) for each of the last 7 days.
+  let chartSel = null;
+  function renderWeekChart() {
+    const card = $('h-chart-card');
+    card.hidden = history.length === 0;
+    if (card.hidden) return;
+    const days = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      days.push({ date: d, focus: 0, pause: 0, sessions: 0 });
+    }
+    for (const h of history) {
+      const d = new Date(h.state.startedAt); d.setHours(0, 0, 0, 0);
+      const slot = days.find((x) => x.date.getTime() === d.getTime());
+      if (!slot) continue;
+      const m = metrics(h.state, h.causes);
+      slot.focus += m.focusMs / 60000; slot.pause += m.pauseMs / 60000; slot.sessions += 1;
+    }
+    const maxMin = Math.max(...days.map((d) => d.focus + d.pause), 1);
+    const step = [1, 2, 5, 10, 15, 30, 60, 120].find((v) => maxMin / v <= 3) || 240;
+    const top = Math.ceil(maxMin / step) * step;
+    const W = 320, H = 150, L = 30, B = 20, T = 6, plotH = H - B - T, colW = (W - L) / 7, barW = Math.min(22, colW * 0.5);
+    const y = (v) => T + plotH - (v / top) * plotH;
+    const NS = 'http://www.w3.org/2000/svg';
+    const node = (tag, attrs, text) => {
+      const n = document.createElementNS(NS, tag);
+      for (const k in attrs) n.setAttribute(k, attrs[k]);
+      if (text != null) n.textContent = text;
+      return n;
+    };
+    // Bar with only its outer end rounded (4px), square at the baseline or the segment below
+    const bar = (x, y0, y1, fill, roundTop) => {
+      const hgt = y0 - y1;
+      if (hgt <= 0) return null;
+      const r = roundTop ? Math.min(4, hgt, barW / 2) : 0;
+      const d = `M${x},${y0} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + barW - r} Q${x + barW},${y1} ${x + barW},${y1 + r} V${y0} Z`;
+      return node('path', { d, fill });
+    };
+    const svg = node('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Focus and paused minutes for the last 7 days' });
+    for (let v = 0; v <= top; v += step) {
+      svg.appendChild(node('line', { class: 'grid', x1: L, x2: W, y1: y(v), y2: y(v) }));
+      svg.appendChild(node('text', { class: 'axis', x: L - 6, y: y(v) + 4, 'text-anchor': 'end' }, `${v}m`));
+    }
+    const css = getComputedStyle(document.documentElement);
+    const cf = css.getPropertyValue('--focus').trim(), cp = css.getPropertyValue('--pause').trim();
+    const tip = $('h-chart-tip');
+    const describe = (d) => `${d.date.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}: `
+      + (d.sessions ? `${Math.round(d.focus)} min focus, ${Math.round(d.pause)} min paused, ${d.sessions} session${d.sessions === 1 ? '' : 's'}` : 'no sessions');
+    days.forEach((d, i) => {
+      const g = node('g', { class: `day${chartSel === i ? ' sel' : ''}` });
+      const x0 = L + i * colW;
+      g.appendChild(node('rect', { class: 'hit', x: x0 + 2, y: T, width: colW - 4, height: plotH + B, rx: 6 }));
+      const bx = x0 + (colW - barW) / 2;
+      const yF = y(d.focus), yP = y(d.focus + d.pause);
+      const hasPause = d.pause > 0 && yF - yP > 2.5;
+      const fb = bar(bx, y(0), yF, cf, !hasPause);
+      if (fb) g.appendChild(fb);
+      if (hasPause) { const pb = bar(bx, yF - 2, yP, cp, true); if (pb) g.appendChild(pb); } // 2px gap between stacked parts
+      g.appendChild(node('text', { class: 'axis', x: x0 + colW / 2, y: H - 5, 'text-anchor': 'middle' },
+        i === 6 ? 'Today' : d.date.toLocaleDateString([], { weekday: 'short' })));
+      g.appendChild(node('title', {}, describe(d)));
+      const pick = () => { chartSel = i; tip.textContent = describe(d); svg.querySelectorAll('.day').forEach((n, j) => n.classList.toggle('sel', j === i)); };
+      g.addEventListener('click', pick);
+      g.addEventListener('mouseenter', pick);
+      svg.appendChild(g);
+    });
+    $('h-chart').replaceChildren(svg);
+    tip.textContent = chartSel != null ? describe(days[chartSel]) : 'Tap a day to see its minutes.';
+  }
+
   function renderHistory() {
     const list = $('h-list');
     list.replaceChildren();
@@ -242,6 +325,8 @@
     $('h-sessions').textContent = n;
     $('h-avg-focus').textContent = n ? fmtMin(all.reduce((s, x) => s + x.m.focusMs, 0) / n) : '0m';
     $('h-avg-pauses').textContent = n ? (all.reduce((s, x) => s + x.m.pauseCount, 0) / n).toFixed(1) : '0';
+
+    renderWeekChart();
 
     // Reflection: brief interruptions vs breaks, and when the first pause tends to come
     const insights = $('h-insights');
@@ -490,8 +575,7 @@
 
   function showView(name) {
     view = name;
-    ['setup', 'timer', 'history', 'tools'].forEach((v) => { $(`view-${v}`).hidden = v !== name; });
-    $('tabbar').hidden = name === 'setup';
+    ['timer', 'history', 'tools'].forEach((v) => { $(`view-${v}`).hidden = v !== name; });
     document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
     if (name === 'history') renderHistory();
     if (name === 'tools') renderTrials();
@@ -499,34 +583,42 @@
   }
 
   function activate() {
+    if (sensorsOn) return;
     sensorsOn = true;
     requestWakeLock();
-    showView('timer');
-    setTimeout(() => {
-      if (sensor.getReading().lastEventAt === 0) {
-        const w = $('sensor-warning');
-        w.textContent = SIM
-          ? 'Simulator mode: use the buttons at the bottom.'
-          : 'No motion data yet. Open this page in Safari over https, reload, and tap Allow. On a computer, add ?sim=1 to the address.';
-        w.hidden = false;
-      }
-    }, 2500);
   }
 
-  function onStart() {
-    const btn = $('enable-btn');
-    btn.disabled = true;
-    $('setup-msg').textContent = '';
-    unlockAudio();
+  function warn(text) {
+    const w = $('sensor-warning');
+    w.textContent = text;
+    w.hidden = !text;
+  }
+
+  // No Start button: the page opens on the timer and turns sensors on by itself.
+  // iOS only grants motion access inside a tap, so if no data arrives the first tap anywhere asks.
+  function autoStart() {
     if (SIM) {
       activate();
+      warn('Simulator mode: use the buttons at the bottom.');
       return;
     }
-    // sensor.enable() asks iOS for permission synchronously inside this tap.
-    sensor.enable().then(activate).catch((err) => {
-      btn.disabled = false;
-      $('setup-msg').textContent = `${err.message} If you tapped Don't Allow, close this tab and open the page again.`;
-    });
+    sensor.enable().then(activate).catch(() => {});
+    setTimeout(() => {
+      if (sensor.getReading().lastEventAt === 0) warn('Tap anywhere to turn on motion sensing, then tap Allow.');
+    }, 1000);
+    const onFirstTap = () => {
+      unlockAudio();
+      if (sensor.getReading().lastEventAt > 0) return done();
+      sensor.enable().then(() => { activate(); done(); }).catch((err) => {
+        warn(`${err.message} If you tapped Don't Allow, close this tab and open the page again.`);
+      });
+    };
+    const done = () => {
+      document.removeEventListener('click', onFirstTap, true);
+      document.removeEventListener('touchend', onFirstTap, true);
+    };
+    document.addEventListener('click', onFirstTap, true);
+    document.addEventListener('touchend', onFirstTap, true);
   }
 
   function onFeedback(chip) {
@@ -551,7 +643,6 @@
     // A session restored while "running" has no sensor yet: pause it until the phone is face-down again.
     if (timer.getState().status === 'running') pauseWith('page closed');
 
-    $('enable-btn').addEventListener('click', onStart);
     $('stop-btn').addEventListener('click', () => timer.stop());
     $('new-btn').addEventListener('click', () => timer.reset());
     document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
@@ -640,10 +731,13 @@
 
     setInterval(() => {
       control();
+      if (!SIM && sensor.getReading().lastEventAt > 0 && /^Tap anywhere/.test($('sensor-warning').textContent)) warn('');
       if (view === 'timer') renderTimer(timer.getState());
       if (view === 'tools' && settings.debug) renderDebug();
     }, APP.TICK_MS);
   }
 
   init();
+  showView('timer');
+  autoStart();
 })();

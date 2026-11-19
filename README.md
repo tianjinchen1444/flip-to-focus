@@ -3,7 +3,7 @@
 One iPhone web page that joins the team's pieces:
 
 | File | Owner / origin | Role |
-|---|---|---|---|
+|---|---|---|
 | `timer.js` | Team recorder API v2.1, **copied unchanged** | Focus/pause segments, stop, reset, feedback, localStorage |
 | `sensor.js` | Built from the team's sensor test page | `accelerationIncludingGravity.z`, ±7 m/s² threshold, 300 ms stability |
 | `app.js` | Glue | Calls `focusTimer.start()/pause()` from posture, keeps session history, accuracy trials |
@@ -25,7 +25,7 @@ In testing, a phone held in the hand near the ±7 threshold flickered between "f
 ## Run it
 
 1. Upload all files in this folder to a GitHub repository and turn on **Settings → Pages → Deploy from a branch → main / (root)**. Motion sensors only work over https.
-2. Open the address in iPhone **Safari**, tap **Start**, and allow motion access.
+2. Open the address in iPhone **Safari**. There is no Start button: the timer screen opens directly. On iPhone, the first tap anywhere asks for motion access (iOS only allows that prompt after a tap); tap **Allow**.
 3. On a computer, add `?sim=1` to the address to get buttons that simulate face-up, face-down, and pick-up.
 
 ## Known limits

@@ -13,25 +13,8 @@
 </head>
 <body>
   <main>
-    <!-- Setup: one tap to grant motion access -->
-    <section id="view-setup" class="view">
-      <div class="setup">
-        <div class="phone-art" aria-hidden="true"><div class="phone"><div class="phone-screen"></div></div></div>
-        <h1>Flip to Focus</h1>
-        <p class="lead">Turn your phone face-down to focus. Pick it up and the session pauses. Every pause is recorded so you can see how you really study.</p>
-        <ol class="steps">
-          <li>Tap <strong>Start</strong> and allow motion access.</li>
-          <li>Keep this page open in Safari.</li>
-          <li>Lay the phone face-down on a flat surface.</li>
-        </ol>
-        <button id="enable-btn" class="btn primary big" type="button">Start</button>
-        <p id="setup-msg" class="msg" role="status"></p>
-        <p class="fine">Only motion data is used, only while this page is open. Your records stay on this phone until you export them.</p>
-      </div>
-    </section>
-
     <!-- Timer -->
-    <section id="view-timer" class="view" hidden>
+    <section id="view-timer" class="view">
       <div id="sensor-warning" class="banner" hidden></div>
       <div class="top-row">
         <span id="status-pill" class="pill">Not started</span>
@@ -42,6 +25,7 @@
         <p class="label">Focus time</p>
         <div id="focus-clock" class="clock">00:00</div>
         <p id="hint" class="hint">Lay the phone face-down to start.</p>
+        <div id="live-bar" class="live-bar" aria-hidden="true"></div>
       </div>
 
       <div id="pause-card" class="pause-card" hidden>
@@ -49,12 +33,12 @@
           <span id="pause-kind">Brief interruption</span>
           <span id="pause-clock" class="pause-clock">0:00</span>
         </div>
-        <p class="label">What are you doing? (optional)</p>
+        <p class="label">What are you doing? Tap one (optional)</p>
         <div class="chips" id="feedback-chips">
-          <button type="button" class="chip" data-label="focusing">Still focusing</button>
-          <button type="button" class="chip" data-label="break">Taking a break</button>
-          <button type="button" class="chip" data-label="sleeping">Sleeping</button>
-          <button type="button" class="chip" data-label="other">Other…</button>
+          <button type="button" class="chip" data-label="focusing"><span class="chip-title">Still focusing</span><span class="chip-sub">e.g. looking something up</span></button>
+          <button type="button" class="chip" data-label="break"><span class="chip-title">Taking a break</span><span class="chip-sub">rest, snack, chat</span></button>
+          <button type="button" class="chip" data-label="sleeping"><span class="chip-title">Sleeping</span><span class="chip-sub">done for now</span></button>
+          <button type="button" class="chip" data-label="other"><span class="chip-title">Other…</span><span class="chip-sub">type a short note</span></button>
         </div>
       </div>
 
@@ -100,6 +84,14 @@
         <div class="stat"><span class="stat-label">Sessions</span><span id="h-sessions" class="stat-num">0</span></div>
         <div class="stat"><span class="stat-label">Avg focus</span><span id="h-avg-focus" class="stat-num">0m</span></div>
         <div class="stat"><span class="stat-label">Avg pauses</span><span id="h-avg-pauses" class="stat-num">0</span></div>
+      </div>
+      <div id="h-chart-card" class="card chart-card" hidden>
+        <div class="chart-head">
+          <h3>Last 7 days</h3>
+          <div class="legend"><span><i class="sw f"></i>Focus</span><span><i class="sw p"></i>Paused</span></div>
+        </div>
+        <div id="h-chart" class="chart"></div>
+        <p id="h-chart-tip" class="chart-tip">Tap a day to see its minutes.</p>
       </div>
       <div id="h-insights" class="insights" hidden></div>
       <ul id="h-list" class="session-list"></ul>
@@ -171,7 +163,7 @@
     <button type="button" data-pose="other">Pick up</button>
   </div>
 
-  <nav id="tabbar" class="tabbar" hidden>
+  <nav id="tabbar" class="tabbar">
     <button type="button" class="tab active" data-view="timer">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2h6"/></svg>Timer
     </button>
